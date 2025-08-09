@@ -1,0 +1,5 @@
+本教程是使用docker 配置openvpn。
+
+第一步，我是使用digital ocean注册服务器，各位可以根据自己的server需求来注册
+
+首先进入服务器提供网站获取该服务器的IP v4地址

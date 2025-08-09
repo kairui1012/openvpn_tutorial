@@ -159,13 +159,78 @@ OpenVPN 的主要配置文件位于 `/etc/openvpn/server.conf`
 
 ### 编辑配置文件
 
-编辑 `/etc/openvpn/server.conf` 配置文件，主要修改以下几项：
+> **推荐使用方法2**：比较安全，避免遗漏某些重要设置
 
+编辑 `/etc/openvpn/server.conf` 配置文件（如果没有的话就直接创建），主要配置以下几项：
+
+**主要配置项说明：**
 - **port**: 设置 OpenVPN 使用的端口，默认是 `1194`
 - **proto**: 设置协议，通常是 `udp`
 - **dev**: 设置虚拟设备，通常使用 `tun`
 - **server**: 配置 VPN 网络的 IP 地址范围
 - **ca**、**cert**、**key**: 设置证书和密钥文件
+
+**最简易的 server.conf 配置内容：**
+```
+port 1194
+proto udp
+dev tun
+ca /etc/openvpn/easy-rsa/pki/ca.crt
+cert /etc/openvpn/easy-rsa/pki/issued/server.crt
+key /etc/openvpn/easy-rsa/pki/private/server.key
+dh /etc/openvpn/easy-rsa/pki/dh.pem
+server 10.8.0.0 255.255.255.0
+```
+
+#### 配置文件创建方法
+
+**方法1：直接创建简易配置**
+
+首先切换到 `/etc/openvpn/` 目录：
+```bash
+cd /etc/openvpn/
+```
+
+然后使用以下命令创建配置文件：
+```bash
+cat <<EOF > server.conf
+port 1194
+proto udp
+dev tun
+ca /etc/openvpn/easy-rsa/pki/ca.crt
+cert /etc/openvpn/easy-rsa/pki/issued/server.crt
+key /etc/openvpn/easy-rsa/pki/private/server.key
+dh /etc/openvpn/easy-rsa/pki/dh.pem
+server 10.8.0.0 255.255.255.0
+EOF
+```
+
+> **重要提示**：`EOF` 必须顶格写，前面不能有空格或 Tab，否则 shell 无法识别结束符号。
+
+**方法2：使用官方示例配置（推荐）**
+
+如果担心出现未知问题，可以使用官方提供的配置模板。官方文档在安装 OpenVPN 时就已经存在了。
+
+使用以下命令复制官方配置：
+```bash
+gunzip -c /usr/share/doc/openvpn/examples/sample-config-files/server.conf.gz > /etc/openvpn/server.conf
+```
+
+> **配置文件位置说明**：官方示例配置位于 `/usr/share/doc/openvpn/examples/sample-config-files/server.conf.gz`
+
+### 生成证书和密钥文件
+
+在配置文件中，我们指定了几个重要的证书和密钥文件，现在需要生成这些文件：
+
+**证书和密钥文件说明：**
+
+| 配置文件指向 | 文件作用 |
+|-------------|----------|
+| `ca /etc/openvpn/easy-rsa/pki/ca.crt` | 根证书（CA） |
+| `cert /etc/openvpn/easy-rsa/pki/issued/server.crt` | 服务器的证书 |
+| `key /etc/openvpn/easy-rsa/pki/private/server.key` | 服务器的私钥 |
+| `dh /etc/openvpn/easy-rsa/pki/dh.pem` | Diffie-Hellman 参数（可选） |
+
 
 ### 启动 OpenVPN 服务
 

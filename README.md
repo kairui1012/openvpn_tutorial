@@ -93,7 +93,7 @@ openvpn/
 | 443 | TCP | HTTPS 服务（可选） |
 | 1194 | UDP | OpenVPN 数据传输 |
 
-## Docker 部署（可选）
+## Docker 部署（!还没完成）
 
 本项目也支持使用 Docker 进行快速部署：
 

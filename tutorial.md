@@ -194,6 +194,7 @@ cd /etc/openvpn/
 然后使用以下命令创建配置文件：
 ```bash
 cat <<EOF > server.conf
+client-to-client
 port 1194
 proto udp
 dev tun
@@ -353,7 +354,9 @@ Common Name (eg: your user, host, or server name) [server]:
    •	**生成的文件：**
 - `/etc/openvpn/easy-rsa/pki/dh.pem` - Diffie-Hellman 参数文件
 
-#### 忘记 CA 密码的解决方案
+
+
+### 忘记 CA 密码的解决方案
 
 如果忘记了 CA 密码，由于 CA 密钥设定密码后**必须输入正确密码才能签发证书**，只能通过以下步骤重新生成：
 
@@ -366,62 +369,87 @@ Common Name (eg: your user, host, or server name) [server]:
 
 为了使 VPN 客户端能够访问互联网，需要启用 IP 转发并配置防火墙规则。
 
-**1. 启用 IP 转发**
+#### 1. 启用 IP 转发
 
-编辑 `/etc/sysctl.conf` 文件，添加或取消注释以下行：
-```bash
-net.ipv4.ip_forward = 1
-```
-
-应用配置更改：
-```bash
-sudo sysctl -p
-```
-
----
-
-### 忘记 CA 密码怎么办？
-
-CA 密钥一旦设定有密码，就**必须输入正确密码才能签发**。如果你忘了密码，只能：
-
-1. 删除 pki/ 目录
-2. 重新 init-pki
-3. 重新 build-ca 并设置新密码
-4. 重新生成服务器证书
-
-# **配置 IP 转发和防火墙**
-
-为了使 VPN 客户端能够访问互联网，需要启用 IP 转发并配置防火墙规则。
-
-1. 编辑 `/etc/sysctl.conf` 启用 IP 转发：
+编辑 `/etc/sysctl.conf` 并确保存在以下配置（如被注释请去掉开头的 `#`）：
 
 ```bash
 net.ipv4.ip_forward = 1
 ```
 
-然后运行以下命令应用更改：
+修改文件的方法：
+
+```bash
+sudo nano /etc/sysctl.conf
+```
+
+找到这一行：
+
+```bash
+#net.ipv4.ip_forward=1
+```
+
+去掉 `#` 保存退出，然后应用更改：
 
 ```bash
 sudo sysctl -p
 ```
 
+#### 2. 配置防火墙规则（允许 VPN 流量通过）
 
+UFW(推荐｜简单)：
 
+只需执行以下命令即可允许 OpenVPN 默认端口（UDP 1194）通过防火墙：
+```bash
+sudo ufw allow 1194/udp
+```
 
+输出结果:
+```bash
+Rules updated
+Rules updated (v6)
+```
+就表示 IPv4 和 IPv6 都放行了。
+
+iptables(更灵活)：
+
+允许 NAT 转发:
+```bash
+sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+```
+
+确保规则重启后仍然生效，保存 iptables 规则：
+
+```bash
+sudo iptables-save > /etc/iptables/rules.v4
+```
+
+如果出现以下错误：
+
+```
+-bash: /etc/iptables/rules.v4: No such file or directory
+```
+
+说明 `/etc/iptables/` 目录尚未创建，按以下步骤处理：
+
+```bash
+sudo mkdir -p /etc/iptables
+sudo iptables-save > /etc/iptables/rules.v4
+```
 
 
 
 ### 启动 OpenVPN 服务
 
 1. **启动 OpenVPN 服务：**
-   ```bash
-   sudo systemctl start openvpn@server
-   ```
+```bash
+sudo systemctl start openvpn@server
+ ```
 
 2. **设置开机自启动（可选）：**
-   ```bash
-   sudo systemctl enable openvpn@server
-   ```
+```bash
+sudo systemctl enable openvpn@server
+```
 
 ### 检查 OpenVPN 服务状态
 
@@ -435,4 +463,168 @@ sudo systemctl status openvpn@server
 
 ---
 
-*注：本教程仍在完善中，后续步骤将包括证书生成、客户端配置等内容。*
+
+## 创建客户端证书和密钥
+
+> 下例以客户端名称 `client1` 为例，您可以替换为其他名字（如每个设备一个名字）。
+
+### 1. 切换到 easy-rsa 目录
+
+```bash
+cd /etc/openvpn/easy-rsa
+```
+
+### 2. 生成客户端私钥与证书签名请求（CSR）
+
+```bash
+./easyrsa gen-req client1 nopass
+```
+
+执行完成后会生成以下文件：
+- `/etc/openvpn/easy-rsa/pki/private/client1.key`（客户端私钥）
+- `/etc/openvpn/easy-rsa/pki/reqs/client1.req`（客户端证书请求）
+
+> 说明：`nopass` 表示客户端私钥不设密码，导入更方便；如需更高安全性，可去掉 `nopass` 自行设密。
+
+### 3. 用 CA 签发客户端证书
+
+```bash
+./easyrsa sign-req client client1
+```
+
+交互说明：
+- Type the word 'yes' to continue: 输入 `yes` 确认
+- Enter pass phrase for .../ca.key: 输入 CA 密码
+
+签发完成后会生成：
+- `/etc/openvpn/easy-rsa/pki/issued/client1.crt`（客户端证书）
+
+### 4. 准备生成 .ovpn 所需文件
+
+从服务器上收集以下文件内容（建议先复制到临时目录便于打包）：
+- CA 根证书：`/etc/openvpn/easy-rsa/pki/ca.crt`
+- 客户端证书：`/etc/openvpn/easy-rsa/pki/issued/client1.crt`
+- 客户端私钥：`/etc/openvpn/easy-rsa/pki/private/client1.key`
+- 可选，静态密钥（如启用 tls-crypt）：`/etc/openvpn/ta.key`
+
+例如：
+```bash
+mkdir -p ~/ovpn/client1
+cp /etc/openvpn/easy-rsa/pki/ca.crt \
+   /etc/openvpn/easy-rsa/pki/issued/client1.crt \
+   /etc/openvpn/easy-rsa/pki/private/client1.key \
+   ~/ovpn/client1/
+# 若使用 tls-crypt 再复制一份 ta.key
+[ -f /etc/openvpn/ta.key ] && cp /etc/openvpn/ta.key ~/ovpn/client1/
+```
+
+接着通过以下三行获取信息
+```bash
+cat ~/ovpn/client1/ca.crt
+cat ~/ovpn/client1/client1.crt
+cat ~/ovpn/client1/client1.key
+```
+
+
+## 配置客户端（应用/App）
+
+### 生成 .ovpn 客户端配置文件（示例模板）
+#### 可以复制[example.ovpn]直接修改
+
+将下面模板保存为 `client1.ovpn`，并将占位符与内嵌证书内容替换为你的实际信息。
+
+```ovpn
+client
+dev tun
+proto udp
+remote YOUR.SERVER.IP 1194
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+remote-cert-tls server
+cipher AES-256-CBC
+auth SHA256
+verb 3
+# 若服务器/客户端启用了压缩才添加（现代配置通常不再启用）
+# comp-lzo
+
+<ca>
+# 粘贴 ca.crt 的全部内容
+-----BEGIN CERTIFICATE-----
+...CA CERT HERE...
+-----END CERTIFICATE-----
+</ca>
+
+<cert>
+# 粘贴 client1.crt 的全部内容（包含 BEGIN/END CERTIFICATE）
+-----BEGIN CERTIFICATE-----
+...CLIENT CERT HERE...
+-----END CERTIFICATE-----
+</cert>
+
+<key>
+# 粘贴 client1.key 的全部内容（包含 BEGIN/END PRIVATE KEY）
+-----BEGIN PRIVATE KEY-----
+...CLIENT KEY HERE...
+-----END PRIVATE KEY-----
+</key>
+
+# 如服务器使用 tls-crypt，在此内嵌 ta.key
+# 并在服务器端与客户端均配置 tls-crypt 指令保持一致
+# tls-crypt 字段用于混淆/加密控制信道，提高抗干扰能力
+# 若未使用，请删除整个块与对应指令
+# tls-crypt ta.key
+<tls-crypt>
+-----BEGIN OpenVPN Static key V1-----
+...TA KEY HERE...
+-----END OpenVPN Static key V1-----
+</tls-crypt>
+```
+
+> 使用说明：
+> - 将 `YOUR.SERVER.IP` 替换为你的服务器公网 IP 或域名。
+> - 若服务器监听的端口/协议不同（如 TCP 或自定义端口），同步修改 `proto` 与 `remote`。
+> - 若未使用 `tls-crypt`，请删除 `<tls-crypt>...</tls-crypt>` 块以及配置中的相关指令。
+> - 在 Mac 上使用 Tunnelblick、在 Windows 上用 OpenVPN GUI、在 iOS/Android 上用官方 OpenVPN Connect，导入 `client1.ovpn` 即可连接。
+
+
+
+# 关于 TLS 握手失败日志
+当 OpenVPN Server 启动并对公网开放端口（默认 UDP 1194）后，可能会在 systemctl status openvpn@server 或 /var/log/syslog 看到类似日志:
+```bash
+TLS Error: TLS handshake failed
+TLS Error: TLS key negotiation failed to occur within 60 seconds
+OpenSSL: error:... peer did not return a certificate
+```
+这是正常现象
+	•	只要你的 VPN 没有客户端连接，这些日志多半是全球sohai互联网扫描器、爬虫或错误配置的客户端随机发来的握手请求。
+	•	因为它们没有正确的 .ovpn 配置文件、证书和密钥，所以 TLS 握手必然失败。
+	•	对服务器正常运行没有影响。
+
+
+
+
+---
+# 还没好！
+
+sudo systemctl restart openvpn-server@server
+sudo iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE
+# 1. 开启 IP 转发
+sudo sysctl -w net.ipv4.ip_forward=1
+echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+
+# 2. NAT 转发规则
+sudo iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE
+
+# 3. 防火墙（可选，但建议）
+sudo ufw allow 1194/udp
+sudo ufw allow OpenSSH
+sudo ufw allow in on tun0
+sudo ufw allow out on tun0
+sudo ufw enable
+
+sudo ufw allow in on tun0
+sudo ufw allow out on tun0
+sudo ufw reload

@@ -11,7 +11,6 @@
 - **新手友好** - 详细的步骤说明，适合Linux初学者
 - **全面覆盖** - 从服务器准备到最终配置的完整流程
 - **实用导向** - 基于真实部署经验，提供实际可用的配置
-- **多平台支持** - 主要针对Ubuntu，同时提供其他系统的适配说明
 
 ## 教程内容
 
@@ -48,17 +47,6 @@
    - 10GB 存储空间
    - 公网 IP 地址
 
-3. **主要命令概览**
-   ```bash
-   # 更新系统
-   sudo apt update
-   
-   # 安装 OpenVPN
-   sudo apt install openvpn easy-rsa
-   
-   # 启动服务
-   sudo systemctl start openvpn@server
-   ```
 
 ## 文件结构
 
@@ -92,7 +80,7 @@ openvpn/
 | 443 | TCP | HTTPS 服务（可选） |
 | 1194 | UDP | OpenVPN 数据传输 |
 
-## Docker 部署（!还没完成）
+## Docker 部署（!还没完成，预计9月前完成）
 
 本项目也支持使用 Docker 进行快速部署：
 
@@ -103,16 +91,6 @@ docker-compose up -d
 # 查看服务状态
 docker-compose ps
 ```
-
-## 贡献指南
-
-欢迎提交问题和改进建议！
-
-1. Fork 本项目
-2. 创建您的特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交您的修改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启一个 Pull Request
 
 ## 常见问题
 
@@ -145,5 +123,7 @@ A: 完整安装通常需要 30-60 分钟，取决于网络速度和熟练程度�
 
 ---
 
-**注意**: 本教程仅供学习和个人使用。请确保遵守您所在地区的相关法律法规。
+**注意**: 
+本教程仅用于合法合规用途（如企业内部网络访问、远程办公），
+作者不对因使用本教程从事违法活动导致的任何后果承担责任。
 

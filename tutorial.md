@@ -202,7 +202,9 @@ ca /etc/openvpn/easy-rsa/pki/ca.crt
 cert /etc/openvpn/easy-rsa/pki/issued/server.crt
 key /etc/openvpn/easy-rsa/pki/private/server.key
 dh /etc/openvpn/easy-rsa/pki/dh.pem
+redirect-gateway def1 bypass-dhcp
 server 10.8.0.0 255.255.255.0
+dhcp-option DNS 8.8.8.8
 EOF
 ```
 
@@ -588,7 +590,14 @@ verb 3
 > - 若未使用 `tls-crypt`，请删除 `<tls-crypt>...</tls-crypt>` 块以及配置中的相关指令。
 > - 在 Mac 上使用 Tunnelblick、在 Windows 上用 OpenVPN GUI、在 iOS/Android 上用官方 OpenVPN Connect，导入 `client1.ovpn` 即可连接。
 
-
+# 开启防火墙（重要!）
+sudo ufw allow 1194/udp           # 允许OpenVPN默认UDP端口
+sudo ufw allow OpenSSH            # 允许SSH端口（通常是22端口）
+sudo ufw allow in on tun0         # 允许tun0接口入站流量（VPN接口）
+sudo ufw allow out on tun0        # 允许tun0接口出站流量
+sudo ufw default allow routed     # 允许路由转发流量
+sudo ufw enable                   # 启用防火墙（如果还没启用的话）
+sudo ufw reload                   # 重新加载规则
 
 # 关于 TLS 握手失败日志
 当 OpenVPN Server 启动并对公网开放端口（默认 UDP 1194）后，可能会在 systemctl status openvpn@server 或 /var/log/syslog 看到类似日志:
@@ -602,29 +611,17 @@ OpenSSL: error:... peer did not return a certificate
 	•	因为它们没有正确的 .ovpn 配置文件、证书和密钥，所以 TLS 握手必然失败。
 	•	对服务器正常运行没有影响。
 
-
-
-
 ---
-# 还没好！
 
-sudo systemctl restart openvpn-server@server
-sudo iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE
-# 1. 开启 IP 转发
-sudo sysctl -w net.ipv4.ip_forward=1
-echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
-sudo sysctl -p
+# 大致上完成，运行成功。
+# 后续可能会添加ipv6的设置，如果一直无法使用建议先关闭电脑本机的ipv6
 
-# 2. NAT 转发规则
-sudo iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE
+```bash
+#关闭本机wifi的ipv6(macos)
+sudo networksetup -setv6off "Wi-Fi"
 
-# 3. 防火墙（可选，但建议）
-sudo ufw allow 1194/udp
-sudo ufw allow OpenSSH
-sudo ufw allow in on tun0
-sudo ufw allow out on tun0
-sudo ufw enable
+#开启本机wifi的ipv6(macos)
+sudo networksetup -setv6automatic "Wi-Fi"
+```
 
-sudo ufw allow in on tun0
-sudo ufw allow out on tun0
-sudo ufw reload
+
